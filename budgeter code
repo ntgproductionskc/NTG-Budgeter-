@@ -1,0 +1,371 @@
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+
+const C={bg:"#000",card:"#0a0a0a",card2:"#111",elevated:"#161616",border:"#1f1f1f",borderL:"#2c2c2c",
+  or:"#ff6a00",orL:"#ff8533",orD:"rgba(255,106,0,0.10)",
+  gn:"#00c853",gnD:"rgba(0,200,83,0.10)",rd:"#ff3b3b",rdD:"rgba(255,59,59,0.08)",
+  bl:"#2196f3",blD:"rgba(33,150,243,0.10)",gd:"#ffab00",gdD:"rgba(255,171,0,0.10)",
+  w:"#fff",t1:"#f0f0f0",t2:"#c0c0c0",t3:"#808080",t4:"#555"};
+const PC=["#ff6a00","#00c853","#2196f3","#ff3b3b","#ffab00","#b388ff","#ff8533","#00e5ff","#ff6090","#76ff03","#ffd740","#ea80fc"];  
+const CATS=[
+  {n:"Rent/Housing",t:"personal",i:"🏠"},{n:"Food/Groceries",t:"personal",i:"🛒"},{n:"Gas/Transport",t:"personal",i:"⛽"},
+  {n:"Subscriptions",t:"personal",i:"📱"},{n:"Entertainment",t:"personal",i:"🎬"},{n:"Health",t:"personal",i:"💊"},
+  {n:"Clothing",t:"personal",i:"👕"},{n:"Savings Transfer",t:"personal",i:"🏦"},{n:"Giving/Tithe",t:"personal",i:"💛"},
+  {n:"Software/Tools",t:"business",i:"💻"},{n:"Advertising",t:"business",i:"📢"},{n:"Equipment/Gear",t:"business",i:"📷"},
+  {n:"Business Travel",t:"business",i:"✈️"},{n:"Contractors",t:"business",i:"🤝"},{n:"Office/Supplies",t:"business",i:"📎"},
+  {n:"Insurance",t:"business",i:"🛡️"},{n:"Taxes",t:"business",i:"📋"},{n:"Education",t:"business",i:"📚"},
+];
+const INIT={income:{sources:[]},expenses:[],savings:{accounts:[],transactions:[]},writeOffs:[],goals:[]};
+
+// h = highlighted key takeaway
+const BIB=[
+  {t:"Proverbs 21:5 — Plan With Purpose",v:"\"The thoughts of the diligent tend only to plenteousness; but of every one that is hasty only to want.\" — Proverbs 21:5 KJV",h:"God rewards the disciplined planner, not the hustler who wings it.",b:"This is a direct command to budget. The Hebrew word for diligent means sharp and decisive. When you plan every dollar before the month starts, you're obeying this verse. Hasty speculation, get-rich-quick schemes, and unplanned spending all lead to want. Slow, intentional building leads to plenteousness.\n\nApply it: Before every month, assign every dollar of expected income to a category. That act of planning is an act of faithfulness."},
+  {t:"Proverbs 22:7 — Debt Is Slavery",v:"\"The rich ruleth over the poor, and the borrower is servant to the lender.\" — Proverbs 22:7 KJV",h:"Every debt payment is freedom you're handing to someone else. God designed you to be free.",b:"Solomon didn't use the word servant lightly. In ancient Israel debt slavery was real. Today it looks different but the principle is identical. When you owe a car payment or credit card balance, a portion of your future labor already belongs to someone else.\n\nThis doesn't mean all leverage is sinful. But debt should make you uncomfortable. It should be temporary, strategic, and attacked with urgency.\n\nApply it: List every debt by interest rate. Pay minimums on all, throw every extra dollar at the highest rate first. That's walking toward the freedom God designed for you."},
+  {t:"Malachi 3:10 — The Tithe Test",v:"\"Bring ye all the tithes into the storehouse, that there may be meat in mine house, and prove me now herewith, saith the Lord of hosts, if I will not open you the windows of heaven, and pour you out a blessing, that there shall not be room enough to receive it.\" — Malachi 3:10 KJV",h:"This is the only place in scripture where God says \"prove me\" — test me. He's inviting you to try Him.",b:"The tithe is 10% given to your local church. It's the baseline of biblical generosity. Offerings go above and beyond.\n\nTithing isn't about God needing your money. He owns everything. It's about realigning your heart. When you give first, before bills, before buying anything, you're declaring God is your source and security, not your paycheck.\n\nR.G. LeTourneau, Truett Cathy, David Green — the wealthiest believers in history will tell you their breakthrough started when they got serious about tithing.\n\nApply it: Set up automatic giving. 10% off the top before anything else. Budget the remaining 90%. Watch God stretch it."},
+  {t:"Proverbs 13:11 — Little by Little",v:"\"Wealth gotten by vanity shall be diminished: but he that gathereth by labour shall increase.\" — Proverbs 13:11 KJV",h:"Compound interest was a biblical principle 3,000 years before savings accounts existed.",b:"The Hebrew implies gathering grain handful by handful, harvest after harvest. $200/month into an index fund for 30 years at 10% average return becomes over $450,000. Not from one big move. From showing up every single month.\n\nApply it: Automate a savings transfer every payday. Even $25/week is $2,600/year. The habit matters more than the amount."},
+  {t:"Luke 14:28 — Jesus Said Budget",v:"\"For which of you, intending to build a tower, sitteth not down first, and counteth the cost, whether he have sufficient to finish it?\" — Luke 14:28 KJV",h:"Jesus Himself said the wise person sits down and runs the numbers before starting anything.",b:"This destroys the idea that faith means being reckless with money. Faith is trusting God while being a faithful steward, which includes doing the math.\n\nApply it: Before any purchase over $100, wait 24 hours. Ask: do I need this, can I afford this, does this align with what God has called me to right now?"},
+  {t:"Matthew 25:14-30 — Parable of the Talents",v:"\"For unto every one that hath shall be given, and he shall have abundance: but from him that hath not shall be taken away even that which he hath.\" — Matthew 25:29 KJV",h:"The servant who buried his money out of fear was called wicked and lazy. God expects a return on what He gives you.",b:"Two servants invested and multiplied. One buried his out of fear. The master's response was brutal. Fear of risk, fear of failure, fear of loss — Jesus condemned that as unfaithfulness. Letting money sit idle when it could be growing is not wise stewardship. It's disobedience disguised as caution.\n\nApply it: Don't let money sit in checking earning nothing. Open a HYSA for emergencies and invest everything beyond that. Put your talents to work."},
+  {t:"Proverbs 27:23-24 — Know Your Numbers",v:"\"Be thou diligent to know the state of thy flocks, and look well to thy herds. For riches are not for ever: and doth the crown endure to every generation?\" — Proverbs 27:23-24 KJV",h:"In modern terms: check your bank balance, track your expenses, review your budget weekly. Know where you stand.",b:"Even if you're doing well right now, riches do not endure forever. One bad season, one unexpected expense can change everything. That's not a reason to fear. It's a reason to stay vigilant.\n\nApply it: Every Sunday, spend 10 minutes reviewing your budget and accounts. Make it a weekly habit like going to church."},
+  {t:"Ecclesiastes 11:2 — Diversify",v:"\"Give a portion to seven, and also to eight; for thou knowest not what evil shall be upon the earth.\" — Ecclesiastes 11:2 KJV",h:"Solomon, the wealthiest man in history, said build multiple streams. The average millionaire has seven.",b:"Don't depend on one client, one platform, or one business. Spread across multiple streams so when one slows down the others carry you.\n\nApply it: Start building your second income stream. If you have an agency, add a productized service. Start a small investment portfolio. Each stream starts tiny but compounds independently."},
+  {t:"1 Timothy 6:10 — Money Isn't Evil",v:"\"For the love of money is the root of all evil: which while some coveted after, they have erred from the faith, and pierced themselves through with many sorrows.\" — 1 Timothy 6:10 KJV",h:"Money is a tool. It's neutral. The problem is when money becomes your identity, your security, or your god.",b:"People misquote this as \"money is the root of all evil\" but that's not what it says. It's the LOVE of money. Build wealth to serve others, provide for your family, and fund the Kingdom. That's the right motive.\n\nApply it: Before any major financial decision, ask: am I doing this to serve God's purposes or my ego?"},
+  {t:"2 Corinthians 9:6-7 — Cheerful Generosity",v:"\"But this I say, He which soweth sparingly shall reap also sparingly; and he which soweth bountifully shall reap also bountifully. Every man according as he purposeth in his heart, so let him give; not grudgingly, or of necessity: for God loveth a cheerful giver.\" — 2 Corinthians 9:6-7 KJV",h:"The measure of your generosity determines the measure of what flows back to you. Give cheerfully, not from guilt.",b:"This isn't prosperity gospel slot-machine theology. It's a Kingdom principle: generous people receive generously. Make generosity a lifestyle, not an event.\n\nApply it: Beyond your tithe, find someone to bless every month. Buy a meal, tip generously, support a missionary. When giving becomes natural, money stops controlling you."},
+  {t:"Deuteronomy 8:18 — God Gives the Power",v:"\"But thou shalt remember the Lord thy God: for it is he that giveth thee power to get wealth, that he may establish his covenant which he sware unto thy fathers, as it is this day.\" — Deuteronomy 8:18 KJV",h:"God Himself gives you the ability to create wealth. It's a gift from Him. Success should produce gratitude, not pride.",b:"This destroys two lies: that poverty is more spiritual than wealth, and the self-made myth. Your intelligence, skills, health, and opportunities all come from God. He gives capacity, not a handout. You still work, plan, and execute. But He's the source.\n\nApply it: Start every work session acknowledging that everything you're building is because God gave you the ability to build it."},
+];
+
+const RICH=[
+  {t:"Assets vs Liabilities",h:"Before any purchase: does this make me money or cost me money?",b:"A camera that books $5K in jobs is an asset. A flashy car payment is a liability. The wealthy obsess over this distinction."},
+  {t:"Revenue Is Vanity, Profit Is Sanity",h:"Focus on what you keep, not what you make. Cut every expense that doesn't produce revenue.",b:"Hormozi: $50K/mo revenue with $48K expenses is worse than $10K with $3K expenses. Profit margin is everything."},
+  {t:"Lifestyle Is Your Biggest Enemy",h:"The gap between what you earn and what you spend is your wealth engine.",b:"Graham Stephan lives below his means despite millions. Every unspent dollar compounds for decades."},
+  {t:"Time Is the Real Currency",h:"If your time produces $100/hr and you're doing $15/hr tasks, you're losing money by not delegating.",b:"Buy back your time before you buy things. Hire help, automate, eliminate non-revenue tasks."},
+  {t:"Taxes Are Your Biggest Expense",h:"W-2 employees have zero control. Business owners can restructure how they earn to keep more.",b:"Write-offs, S-Corp election, retirement accounts, and income timing. Learning the tax code is worth tens of thousands per year."},
+  {t:"Other People's Money",h:"Debt for cash-flowing assets is fundamentally different from consumer debt.",b:"Bank loans for rental properties that tenants pay off. Investor capital for businesses. This is how wealth scales beyond personal savings."},
+  {t:"Network = Net Worth",h:"One relationship with the right person can change your trajectory more than a year of grinding alone.",b:"Invest in relationships by adding genuine value to people who operate at a higher level."},
+  {t:"Multiple Income Streams",h:"Average millionaire has 7 sources. Not 7 jobs — rental income, dividends, business profit, royalties, etc.",b:"Each stream starts small but compounds independently. This creates real financial security."},
+];
+
+const TAX=[
+  {t:"Section 199A — QBI 20% Deduction",h:"Deduct 20% of business income before tax. On $100K profit that's $20K tax-free.",b:"Available to LLC, S-Corp, sole prop owners. Phases out for service businesses above $182,100 single / $364,200 married."},
+  {t:"Section 179 — Equipment Write-Off",h:"Deduct full cost of equipment the year you buy it, up to $1.16M.",b:"Cameras, computers, vehicles over 6,000 lbs, software, furniture. Buy before Dec 31 to write off this tax year."},
+  {t:"Section 162 — Business Expenses",h:"Any ordinary and necessary business expense is deductible. Keep every receipt.",b:"Software, ads, meals (50%), contractors, professional development, office supplies, everything you need to operate."},
+  {t:"Section 280A — Home Office",h:"Simplified: $5/sqft up to 300sqft ($1,500). Regular method usually gives more.",b:"Exclusive business use required. Regular method deducts actual % of rent, utilities, internet, insurance, repairs."},
+  {t:"Self-Employment Tax",h:"15.3% on top of income tax. This is why S-Corp matters.",b:"You pay both employer and employee Social Security/Medicare. S-Corp splits income to reduce this."},
+  {t:"S-Corp Election (Form 2553)",h:"At ~$40-50K profit, S-Corp saves ~$7,650/yr in SE tax on $100K.",b:"Pay yourself reasonable salary (payroll taxes), take rest as distributions (no payroll taxes). Need to run payroll."},
+  {t:"Quarterly Estimated Taxes",h:"Due Apr 15, Jun 15, Sep 15, Jan 15. Set aside 25-30% of profit every quarter.",b:"Underpaying triggers penalties. Separate account for tax money so you're never scrambling."},
+  {t:"Solo 401k / SEP IRA",h:"Contribute up to $69K/year. Reduces taxable income dollar for dollar.",b:"Solo 401k: $23K employee + 25% employer. SEP IRA: 25% of net. Most powerful tax reduction for entrepreneurs."},
+  {t:"HSA — Triple Tax Advantage",h:"Pre-tax in, tax-free growth, tax-free out for medical. No other account does this.",b:"$4,150 individual / $8,300 family. Stealth retirement: pay medical out of pocket, let HSA grow. After 65 withdraw for anything."},
+  {t:"Mileage Deduction",h:"67 cents per business mile. Track every drive to clients, shoots, and meetings.",b:"Standard mileage vs actual expenses — cheap car + lots of miles = standard wins. Choose in first year."},
+];
+
+const FOLLOW=[
+  {n:"Alex Hormozi",f:"Business, pricing, profit",y:"https://youtube.com/@AlexHormozi",w:"Grand Slam Offers and value creation. Essential for making your business actually profitable."},
+  {n:"Graham Stephan",f:"Finance, real estate, investing",y:"https://youtube.com/@GrahamStephan",w:"Built wealth through real estate while spending almost nothing. Great on compound interest."},
+  {n:"Karlton Dennis",f:"Tax strategy, entities, write-offs",y:"https://youtube.com/@KarltonDennis",w:"CPA breaking down S-Corp, write-offs, and paying zero in taxes legally. Essential for business owners."},
+  {n:"Jaspreet Singh",f:"Investing, tax, financial literacy",y:"https://youtube.com/@MinorityMindset",w:"How the wealthy avoid taxes legally. Tax optimization, investing, business structures."},
+  {n:"His And Her Money",f:"Biblical finance, marriage + money",y:"https://youtube.com/@HisAndHerMoney",w:"Faith-based financial education connecting biblical principles to practical money moves."},
+  {n:"The Plain Bagel",f:"Investing education",y:"https://youtube.com/@ThePlainBagel",w:"Clear honest investing explanations without hype. Index funds, bonds, market cycles."},
+  {n:"Codie Sanchez",f:"Business acquisition",y:"https://youtube.com/@CodieSanchez",w:"Buying existing businesses instead of starting from scratch. Laundromats, car washes, service biz."},
+  {n:"Caleb Hammer",f:"Financial audits, reality checks",y:"https://youtube.com/@CalebHammer",w:"Real financial audits of regular people. Learn what NOT to do. Brutally honest."},
+  {n:"Mark Tilbury",f:"Wealth building",y:"https://youtube.com/@marktilbury",w:"Self-made multimillionaire. Simple breakdowns of how money works."},
+  {n:"Dave Ramsey",f:"Debt elimination",y:"https://youtube.com/@DaveRamsey",w:"Baby steps for debt elimination work. Gets weaker for wealth building but solid for getting out of debt."},
+];
+
+const RES=[
+  {c:"Form Your LLC Yourself (Save Hundreds)",items:[
+    {n:"IRS EIN Application (FREE)",u:"https://www.irs.gov/businesses/small-businesses-self-employed/apply-for-an-employer-identification-number-ein-online",d:"Get your EIN directly from the IRS for free. 5 minutes, instant. NEVER pay a service for this."},
+    {n:"Missouri LLC Filing ($50)",u:"https://www.sos.mo.gov/business/corporations/startBusiness",d:"File directly with Missouri Secretary of State. Skip the middleman."},
+    {n:"Kansas LLC Filing ($160)",u:"https://www.sos.ks.gov/business/business-filings.html",d:"File directly with Kansas. No lawyer needed for basic LLC."},
+    {n:"Wyoming LLC ($100)",u:"https://sos.wyo.gov/Business/StartBusiness.aspx",d:"Privacy, asset protection, no state income tax. Popular for holding companies."},
+    {n:"SBA Business Structure Guide",u:"https://www.sba.gov/business-guide/launch-your-business/choose-business-structure",d:"Free guide: sole prop vs LLC vs S-Corp vs C-Corp. Read before you file."},
+  ]},
+  {c:"Legal Help & Mentorship",items:[
+    {n:"ABA Lawyer Referral",u:"https://www.americanbar.org/groups/legal_services/flh-home/",d:"Find a licensed attorney for bankruptcy, business law, or tax issues."},
+    {n:"SCORE Free Mentors",u:"https://www.score.org/",d:"Retired executives mentor you for free on business planning, finances, structure."},
+    {n:"Legal Aid of Western Missouri",u:"https://lawmo.org/",d:"Free legal help if you qualify. Covers bankruptcy, consumer protection, housing."},
+  ]},
+  {c:"Free Tools",items:[
+    {n:"Wave Accounting (Free)",u:"https://www.waveapps.com/",d:"Free invoicing and accounting. Good before you need something bigger."},
+    {n:"IRS Small Business Portal",u:"https://www.irs.gov/businesses/small-businesses-self-employed",d:"EIN apps, quarterly vouchers, entity forms. Everything from the source."},
+    {n:"IRS Withholding Estimator",u:"https://www.irs.gov/individuals/tax-withholding-estimator",d:"Calculate exactly what to set aside for quarterly estimates."},
+  ]},
+];
+
+const fmt=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:0,maximumFractionDigits:0}).format(n||0);
+const fmt2=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2}).format(n||0);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const DY=["Su","Mo","Tu","We","Th","Fr","Sa"];
+const MO=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const cDays=(y,m)=>{const f=new Date(y,m,1),l=new Date(y,m+1,0),d=[];for(let i=0;i<f.getDay();i++)d.push(null);for(let i=1;i<=l.getDate();i++)d.push(i);return d};
+const ord=n=>{const s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0])};
+const numF=v=>v.replace(/[^0-9.]/g,"").replace(/(\..*?)\./g,"$1");
+const intF=v=>v.replace(/[^0-9]/g,"");
+
+const Tip=({active,payload})=>active&&payload?.length?<div style={{background:C.elevated,border:`1px solid ${C.borderL}`,borderRadius:10,padding:"8px 14px",fontSize:14}}><span style={{color:payload[0].payload.fill,fontWeight:600}}>{payload[0].name}</span><span style={{color:C.t2,marginLeft:10}}>{fmt(payload[0].value)}</span></div>:null;
+
+export default function App(){
+  const [tab,setTab]=useState("dash");
+  const [data,setData]=useState(INIT);
+  const [rdy,setRdy]=useState(false);
+  const [per,setPer]=useState("monthly");
+  const [flt,setFlt]=useState("all");
+  const [chat,setChat]=useState([]);
+  const [ci,setCi]=useState("");
+  const [bsy,setBsy]=useState(false);
+  const [mod,setMod]=useState(null);
+  const [edt,setEdt]=useState(null);
+  const [lt,setLt]=useState("bible");
+  const [oi,setOi]=useState(null);
+  const [cM,setCM]=useState(new Date().getMonth());
+  const [cY,setCY]=useState(new Date().getFullYear());
+  const cRef=useRef(null);
+  const ciRef=useRef(null);
+  const fRef=useRef(null);
+
+  const [fE,sE]=useState({name:"",amount:"",category:CATS[0].n,type:"personal",dueDay:""});
+  const [fI,sI]=useState({source:"",amount:""});
+  const [fW,sW]=useState({desc:"",amount:"",cat:"Software/Tools",date:"",receipt:null});
+  const [fG,sG]=useState({name:"",target:"",saved:"0"});
+  const [fS,sS]=useState({name:"",balance:"",type:"checking"});
+  const [fT,sT]=useState({account:"",amount:"",note:"",type:"deposit"});
+  const [vr,setVr]=useState(null);
+
+  useEffect(()=>{(async()=>{
+    try{const r=await window.storage.get("ntg4-d");if(r?.value)setData(JSON.parse(r.value))}catch{}
+    try{const r=await window.storage.get("ntg4-c");if(r?.value)setChat(JSON.parse(r.value))}catch{}
+    setRdy(true);
+  })()},[]);
+
+  const sv=useCallback(async d=>{setData(d);try{await window.storage.set("ntg4-d",JSON.stringify(d))}catch{}},[]);
+  const sc=useCallback(async m=>{setChat(m);try{await window.storage.set("ntg4-c",JSON.stringify(m))}catch{}},[]);
+  useEffect(()=>{cRef.current?.scrollIntoView({behavior:"smooth"})},[chat]);
+
+  const tI=data.income.sources.reduce((s,i)=>s+(i.amount||0),0);
+  const tE=data.expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const tW=data.writeOffs.reduce((s,w)=>s+(w.amount||0),0);
+  const tS=(data.savings?.accounts||[]).reduce((s,a)=>s+(a.balance||0),0);
+  const nt=tI-tE;const ml=per==="weekly"?1/4.33:1;
+
+  const pie=useMemo(()=>{const t={};data.expenses.filter(e=>flt==="all"||e.type===flt).forEach(e=>{t[e.category]=(t[e.category]||0)+(e.amount||0)*ml});return Object.entries(t).filter(([,v])=>v>0).map(([n,v])=>({name:n,value:Math.round(v)})).sort((a,b)=>b.value-a.value)},[data.expenses,flt,ml]);
+  const upc=useMemo(()=>{const td=new Date().getDate();return[...data.expenses].filter(e=>e.dueDay).sort((a,b)=>((a.dueDay-td+31)%31)-((b.dueDay-td+31)%31))},[data.expenses]);
+
+  const aE=()=>{if(!fE.name||!fE.amount)return;sv({...data,expenses:[...data.expenses,{...fE,amount:+fE.amount,dueDay:fE.dueDay?+fE.dueDay:null,id:uid()}]});sE({name:"",amount:"",category:CATS[0].n,type:"personal",dueDay:""});setMod(null)};
+  const dE=id=>sv({...data,expenses:data.expenses.filter(e=>e.id!==id)});
+  const uE=()=>{if(!edt)return;sv({...data,expenses:data.expenses.map(e=>e.id===edt.id?{...edt,amount:+edt.amount,dueDay:edt.dueDay?+edt.dueDay:null}:e)});setEdt(null)};
+  const aI=()=>{if(!fI.source||!fI.amount)return;sv({...data,income:{...data.income,sources:[...data.income.sources,{...fI,amount:+fI.amount,id:uid()}]}});sI({source:"",amount:""});setMod(null)};
+  const dI=id=>sv({...data,income:{...data.income,sources:data.income.sources.filter(i=>i.id!==id)}});
+  const aW=()=>{if(!fW.desc||!fW.amount)return;sv({...data,writeOffs:[...data.writeOffs,{description:fW.desc,amount:+fW.amount,category:fW.cat,id:uid(),date:fW.date||new Date().toISOString().split("T")[0],receipt:fW.receipt}]});sW({desc:"",amount:"",cat:"Software/Tools",date:"",receipt:null});setMod(null)};
+  const dW=id=>sv({...data,writeOffs:data.writeOffs.filter(w=>w.id!==id)});
+  const aG=()=>{if(!fG.name||!fG.target)return;sv({...data,goals:[...data.goals,{...fG,target:+fG.target,saved:+(fG.saved||0),id:uid()}]});sG({name:"",target:"",saved:"0"});setMod(null)};
+  const uGS=(id,v)=>sv({...data,goals:data.goals.map(g=>g.id===id?{...g,saved:+v||0}:g)});
+  const dG=id=>sv({...data,goals:data.goals.filter(g=>g.id!==id)});
+  const aSA=()=>{if(!fS.name)return;sv({...data,savings:{...data.savings,accounts:[...(data.savings?.accounts||[]),{...fS,balance:+(fS.balance||0),id:uid()}]}});sS({name:"",balance:"",type:"checking"});setMod(null)};
+  const dSA=id=>sv({...data,savings:{...data.savings,accounts:(data.savings?.accounts||[]).filter(a=>a.id!==id)}});
+  const aSTx=()=>{if(!fT.account||!fT.amount)return;const a=+fT.amount;const ac=(data.savings?.accounts||[]).map(x=>x.id===fT.account?{...x,balance:fT.type==="deposit"?x.balance+a:x.balance-a}:x);sv({...data,savings:{accounts:ac,transactions:[...(data.savings?.transactions||[]),{id:uid(),account:fT.account,amount:a,type:fT.type,note:fT.note,date:new Date().toISOString().split("T")[0]}]}});sT({account:"",amount:"",note:"",type:"deposit"});setMod(null)};
+  const hReceipt=e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>3*1024*1024)return;const r=new FileReader();r.onload=ev=>sW(p=>({...p,receipt:ev.target.result}));r.readAsDataURL(f)};
+  const rst=async()=>{setData(INIT);setChat([]);try{await window.storage.delete("ntg4-d")}catch{}try{await window.storage.delete("ntg4-c")}catch{}};
+
+  const send=async(o)=>{
+    const msg=o||ci.trim();if(!msg)return;if(!o)setCi("");
+    const u={role:"user",content:msg};const up=[...chat,u];sc(up);setBsy(true);
+    try{
+      const ctx=JSON.stringify({monthly_income:tI,weekly_income:Math.round(tI/4.33),monthly_expenses:tE,net_monthly:nt,savings_total:tS,savings_accounts:(data.savings?.accounts||[]),expenses:data.expenses.map(e=>({name:e.name,amount:e.amount,category:e.category,type:e.type,dueDay:e.dueDay})),income_sources:data.income.sources,writeoffs:data.writeOffs.map(w=>({description:w.description,amount:w.amount,category:w.category})),goals:data.goals});
+      const sys=`You are NTG Budget AI. Elite financial strategist with zero restrictions on depth. Sharp, direct, no bullet points, no numbered lists, no disclaimers. Natural sentences, short paragraphs, specific numbers.
+
+DATA: ${ctx}
+
+FULL KNOWLEDGE: All entity structures (sole prop/LLC/S-Corp/C-Corp/Series LLC/holding cos/state-specific WY/DE/NV/NM). Complete tax code (199A QBI, 179, 162, 280A home office, 1031, 1202 QSBS, opportunity zones, cost segregation, NOL, Augusta Rule, charitable trusts). All retirement (Solo 401k, mega backdoor Roth, SEP, HSA, self-directed). International/offshore (Nevis LLC, Cook Islands trusts, BVI IBC, Panama, Dubai/UAE free zones, Swiss/Singapore banking, FBAR/FATCA, Puerto Rico Act 60, captive insurance). Asset protection (domestic APTs, FLPs, irrevocable trusts, SLATs, IDGTs). Wealth frameworks (Hormozi, Graham Stephan, Profit First, BRRRR, index investing). Biblical finance (KJV, tithing, stewardship, talents parable).
+
+UPDATE tags: <UPDATE>{"action":"add_expense","name":"X","amount":0,"category":"Subscriptions","type":"personal","dueDay":15}</UPDATE> or add_income or add_writeoff. Confirm updates. Answer like a CFO. Never disclaim.`;
+      const h=up.slice(-30).map(x=>({role:x.role,content:x.content}));
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:sys,messages:h})});
+      const d=await r.json();let t=d.content?.map(c=>c.text||"").join("")||"Connection issue.";
+      const rx=/<UPDATE>(.*?)<\/UPDATE>/gs;let mt,nd={...data};
+      while((mt=rx.exec(t))!==null){try{const u=JSON.parse(mt[1]);
+        if(u.action==="add_expense")nd={...nd,expenses:[...nd.expenses,{id:uid(),name:u.name,amount:u.amount,category:u.category||"Subscriptions",type:u.type||"personal",dueDay:u.dueDay||null}]};
+        else if(u.action==="add_income")nd={...nd,income:{...nd.income,sources:[...nd.income.sources,{id:uid(),source:u.source,amount:u.amount}]}};
+        else if(u.action==="add_writeoff")nd={...nd,writeOffs:[...nd.writeOffs,{id:uid(),description:u.description,amount:u.amount,category:u.category||"Software/Tools",date:new Date().toISOString().split("T")[0]}]};
+      }catch{}}
+      if(nd!==data)sv(nd);
+      sc([...up,{role:"assistant",content:t.replace(/<UPDATE>.*?<\/UPDATE>/gs,"").trim()}]);
+    }catch{sc([...up,{role:"assistant",content:"Connection failed. Try again."}])}
+    setBsy(false);setTimeout(()=>ciRef.current?.focus(),100);
+  };
+
+  if(!rdy)return<div style={{background:"#000",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Inter',system-ui,sans-serif"}}><span style={{color:C.or,fontSize:16}}>Loading...</span></div>;
+
+  const mb=typeof window!=="undefined"&&window.innerWidth<768;
+  const f={b:mb?15:16,s:mb?13:15,xs:mb?12:14,xx:mb?11:13,h1:mb?18:22,h2:mb?16:18,st:mb?22:30};
+  const inp={background:C.card2,border:`1px solid ${C.borderL}`,borderRadius:12,padding:"14px 16px",color:C.t1,fontSize:f.b,fontFamily:"'Inter',system-ui,sans-serif",outline:"none",width:"100%",boxSizing:"border-box"};
+  const b1={background:C.or,color:"#000",border:"none",borderRadius:12,padding:"14px 22px",fontSize:f.s,fontWeight:600,cursor:"pointer",fontFamily:"'Inter',system-ui,sans-serif"};
+  const b2={background:"transparent",color:C.t3,border:`1px solid ${C.border}`,borderRadius:12,padding:"14px 22px",fontSize:f.s,cursor:"pointer",fontFamily:"'Inter',system-ui,sans-serif"};
+  const cr={background:C.card,border:`1px solid ${C.border}`,borderRadius:18,padding:mb?16:24};
+  const ts=[{id:"dash",l:"Dashboard",i:"◧"},{id:"bills",l:"Bills",i:"◫"},{id:"savings",l:"Savings",i:"◉"},{id:"writeoffs",l:"Deductions",i:"◈"},{id:"goals",l:"Goals",i:"◎"},{id:"chat",l:"AI",i:"◆"},{id:"learn",l:"Learn",i:"◇"}];
+
+  const Pl=({a,oc,ch})=><button onClick={oc} style={{padding:"8px 16px",borderRadius:9,border:`1px solid ${a?C.or:C.border}`,background:a?C.or:"transparent",color:a?"#000":C.t3,fontWeight:a?600:400,cursor:"pointer",fontSize:f.xs,fontFamily:"'Inter',system-ui,sans-serif"}}>{ch}</button>;
+  const SC=({l,v,c,s})=><div style={{...cr,padding:mb?16:20,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:0,left:0,right:0,height:3,background:c}}/><div style={{color:C.t2,fontSize:f.xx,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8}}>{l}</div><div style={{fontSize:f.st,fontWeight:700,color:c,letterSpacing:"-0.02em",lineHeight:1}}>{v}</div>{s&&<div style={{color:C.t4,fontSize:f.xx,marginTop:6}}>{s}</div>}</div>;
+  const Md=({t,ch,oc})=><div style={{position:"fixed",inset:0,zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.85)",backdropFilter:"blur(6px)",padding:20}} onClick={oc}><div style={{background:C.elevated,border:`1px solid ${C.borderL}`,borderRadius:22,maxWidth:460,width:"100%",maxHeight:"85vh",overflowY:"auto",padding:28}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}><span style={{fontWeight:700,fontSize:f.h2,color:C.w}}>{t}</span><button onClick={oc} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,color:C.t3,cursor:"pointer",fontSize:18,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button></div>{ch}</div></div>;
+  const Rw=({ic,l,r,s,oe,od,c,ex})=><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 0",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}>{ic&&<span style={{fontSize:18,flexShrink:0}}>{ic}</span>}<div style={{minWidth:0}}><div style={{fontSize:f.b,fontWeight:500,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l}</div>{s&&<div style={{fontSize:f.xx,color:C.t4,marginTop:2}}>{s}</div>}</div></div><div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>{ex}<span style={{fontWeight:700,fontSize:f.b,color:c||C.t1,fontVariantNumeric:"tabular-nums"}}>{r}</span>{oe&&<button onClick={oe} style={{background:C.orD,border:"none",borderRadius:6,color:C.or,cursor:"pointer",fontSize:f.xx,padding:"4px 8px",fontFamily:"'Inter',system-ui,sans-serif",fontWeight:500}}>edit</button>}{od&&<button onClick={od} style={{background:C.rdD,border:"none",borderRadius:6,color:C.rd,cursor:"pointer",fontSize:16,padding:"2px 8px"}}>×</button>}</div></div>;
+
+  const bbd={};data.expenses.filter(e=>e.dueDay).forEach(e=>{if(!bbd[e.dueDay])bbd[e.dueDay]=[];bbd[e.dueDay].push(e)});
+  const cd=cDays(cY,cM);
+
+  return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Inter',system-ui,sans-serif",color:C.t1,display:"flex",flexDirection:"column"}}>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <style>{`@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}input::placeholder{color:${C.t4}}`}</style>
+
+    <div style={{borderBottom:`1px solid ${C.border}`,padding:mb?"12px 16px":"14px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"rgba(0,0,0,.92)",backdropFilter:"blur(16px)",zIndex:60}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.or},#ff9944)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:12,color:"#000"}}>NTG</div><span style={{fontSize:f.h2,fontWeight:700,letterSpacing:"-0.03em",color:C.w}}>NTG Budgeter</span></div>
+      {!mb&&<div style={{display:"flex",gap:2,background:C.card,borderRadius:12,padding:3,border:`1px solid ${C.border}`}}>{ts.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setOi(null)}} style={{padding:"8px 16px",borderRadius:9,border:"none",background:tab===t.id?C.or:"transparent",color:tab===t.id?"#000":C.t3,fontWeight:tab===t.id?600:400,cursor:"pointer",fontSize:f.xs,fontFamily:"'Inter',system-ui,sans-serif"}}>{t.l}</button>)}</div>}
+      <button onClick={rst} style={{background:C.rdD,border:`1px solid rgba(255,59,59,.2)`,borderRadius:8,padding:"6px 14px",fontSize:f.xx,color:C.rd,cursor:"pointer",fontFamily:"'Inter',system-ui,sans-serif",fontWeight:500}}>Reset</button>
+    </div>
+
+    <div style={{flex:1,maxWidth:1140,width:"100%",margin:"0 auto",padding:mb?"18px 14px 110px":"30px 28px 50px"}}>
+
+      {tab==="dash"&&<div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+          <div style={{display:"flex",gap:4}}>{["monthly","weekly"].map(v=><Pl key={v} a={per===v} oc={()=>setPer(v)} ch={v[0].toUpperCase()+v.slice(1)}/>)}</div>
+          <div style={{display:"flex",gap:4}}>{["all","personal","business"].map(x=><Pl key={x} a={flt===x} oc={()=>setFlt(x)} ch={x[0].toUpperCase()+x.slice(1)}/>)}</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:mb?"1fr 1fr":"repeat(5,1fr)",gap:mb?10:14,marginBottom:24}}>
+          <SC l={`${per==="weekly"?"Weekly":"Monthly"} Income`} v={fmt(tI*ml)} c={C.gn}/><SC l={`${per==="weekly"?"Weekly":"Monthly"} Expenses`} v={fmt(tE*ml)} c={C.rd}/>
+          <SC l="Net Cash Flow" v={fmt(nt*ml)} c={nt>=0?C.gn:C.rd} s={nt>=0?"In the green":"Overspending"}/><SC l="Total Savings" v={fmt(tS)} c={C.bl}/><SC l="YTD Write-Offs" v={fmt(tW)} c={C.gd} s={`~${fmt(tW*.25)} saved`}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:mb?"1fr":"1fr 1fr",gap:16,marginBottom:20}}>
+          <div style={cr}><div style={{fontSize:f.h2,fontWeight:700,marginBottom:14,color:C.w}}>Spending Breakdown</div>
+            {pie.length>0?<><ResponsiveContainer width="100%" height={mb?230:270}><PieChart><Pie data={pie} cx="50%" cy="50%" innerRadius={mb?42:55} outerRadius={mb?82:105} paddingAngle={3} dataKey="value" stroke="none">{pie.map((_,i)=><Cell key={i} fill={PC[i%PC.length]}/>)}</Pie><Tooltip content={<Tip/>}/></PieChart></ResponsiveContainer>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"8px 16px",marginTop:10}}>{pie.map((d,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:f.xs}}><div style={{width:10,height:10,borderRadius:"50%",background:PC[i%PC.length]}}/><span style={{color:C.t1,fontWeight:500}}>{d.name}</span><span style={{color:C.t3}}>{fmt(d.value)}</span></div>)}</div>
+            </>:<div style={{height:200,display:"flex",alignItems:"center",justifyContent:"center",color:C.t4,fontSize:f.s}}>Add expenses to see breakdown</div>}
+          </div>
+          <div style={cr}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><span style={{fontSize:f.h2,fontWeight:700,color:C.w}}>Income</span><button onClick={()=>setMod("inc")} style={{...b1,padding:"8px 16px",fontSize:f.xs,borderRadius:10}}>+ Add</button></div>
+            <div style={{maxHeight:mb?240:320,overflowY:"auto"}}>{data.income.sources.length===0&&<div style={{color:C.t4,fontSize:f.s,padding:24,textAlign:"center"}}>No income yet</div>}{data.income.sources.map(i=><Rw key={i.id} l={i.source} r={fmt(i.amount*ml)} c={C.gn} od={()=>dI(i.id)}/>)}</div>
+          </div>
+        </div>
+        <div style={cr}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><span style={{fontSize:f.h2,fontWeight:700,color:C.w}}>Expenses</span><button onClick={()=>setMod("exp")} style={{...b1,padding:"8px 16px",fontSize:f.xs,borderRadius:10}}>+ Add</button></div>
+          {edt&&<div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",background:C.orD,padding:16,borderRadius:14}}><input value={edt.name} onChange={e=>setEdt({...edt,name:e.target.value})} style={{...inp,flex:1,minWidth:100}} autoFocus/><input inputMode="decimal" value={edt.amount} onChange={e=>setEdt({...edt,amount:numF(e.target.value)})} style={{...inp,width:110}}/><input inputMode="numeric" value={edt.dueDay||""} onChange={e=>setEdt({...edt,dueDay:intF(e.target.value)})} placeholder="Due day" style={{...inp,width:90}}/><button onClick={uE} style={{...b1,padding:"14px 18px"}}>Save</button><button onClick={()=>setEdt(null)} style={{...b2,padding:"14px 18px"}}>Cancel</button></div>}
+          <div style={{maxHeight:450,overflowY:"auto"}}>{data.expenses.filter(e=>flt==="all"||e.type===flt).length===0&&<div style={{color:C.t4,fontSize:f.s,padding:30,textAlign:"center"}}>No expenses yet</div>}{data.expenses.filter(e=>flt==="all"||e.type===flt).map(e=><Rw key={e.id} ic={CATS.find(c=>c.n===e.category)?.i||"📌"} l={e.name} s={`${e.category} · ${e.type}${e.dueDay?` · Due ${ord(e.dueDay)}`:""}`} r={fmt(e.amount*ml)} c={C.rd} oe={()=>setEdt({...e})} od={()=>dE(e.id)}/>)}</div>
+        </div>
+      </div>}
+
+      {tab==="bills"&&<div>
+        <div style={{fontSize:f.h1,fontWeight:700,color:C.w,marginBottom:4}}>Bill Calendar</div>
+        <div style={{color:C.t2,fontSize:f.s,marginBottom:20}}>Set a due day (1-31) on any expense and it shows here.</div>
+        <div style={{...cr,marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><button onClick={()=>{if(cM===0){setCM(11);setCY(cY-1)}else setCM(cM-1)}} style={{...b2,padding:"8px 16px"}}>←</button><span style={{fontSize:f.h2,fontWeight:700,color:C.w}}>{MO[cM]} {cY}</span><button onClick={()=>{if(cM===11){setCM(0);setCY(cY+1)}else setCM(cM+1)}} style={{...b2,padding:"8px 16px"}}>→</button></div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:mb?3:4}}>
+            {DY.map(d=><div key={d} style={{textAlign:"center",fontSize:f.xx,color:C.t3,fontWeight:600,padding:"8px 0"}}>{d}</div>)}
+            {cd.map((d,i)=>{const bl=d?bbd[d]:null;const td=d===new Date().getDate()&&cM===new Date().getMonth()&&cY===new Date().getFullYear();
+              return<div key={i} style={{minHeight:mb?48:60,borderRadius:10,background:d?bl?C.orD:C.card2:"transparent",border:td?`2px solid ${C.or}`:`1px solid ${d?C.border:"transparent"}`,padding:mb?4:6}}>
+                {d&&<><div style={{fontSize:f.xx,fontWeight:td?700:500,color:td?C.or:C.t2,marginBottom:2}}>{d}</div>{bl&&bl.slice(0,2).map((b,j)=><div key={j} style={{fontSize:mb?9:11,color:C.or,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{b.name}</div>)}{bl&&bl.length>2&&<div style={{fontSize:9,color:C.t4}}>+{bl.length-2}</div>}</>}
+              </div>})}
+          </div>
+        </div>
+        <div style={cr}><div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:14}}>Upcoming</div>
+          {upc.length===0&&<div style={{color:C.t3,fontSize:f.s,padding:24,textAlign:"center"}}>No bills with due dates set</div>}
+          {upc.map(e=>{const td=new Date().getDate();const du=((e.dueDay-td+31)%31);return<Rw key={e.id} ic={CATS.find(c=>c.n===e.category)?.i||"📌"} l={e.name} s={`Due ${ord(e.dueDay)} · ${du===0?"TODAY":du===1?"Tomorrow":`${du} days`}`} r={fmt(e.amount)} c={du<=3?C.rd:C.or}/>})}
+        </div>
+      </div>}
+
+      {tab==="savings"&&<div>
+        <div style={{...cr,marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}><div><div style={{fontSize:f.h1,fontWeight:700,color:C.w}}>Savings</div></div><div style={{color:C.bl,fontSize:f.st,fontWeight:700}}>{fmt(tS)}</div></div></div>
+        <div style={{display:"flex",gap:10,marginBottom:18}}><button onClick={()=>setMod("sa")} style={{...b1,fontSize:f.s}}>+ Account</button><button onClick={()=>setMod("st")} style={{...b2,fontSize:f.s,color:C.bl,borderColor:"rgba(33,150,243,.3)"}}>+ Transaction</button></div>
+        {(data.savings?.accounts||[]).length===0&&<div style={{...cr,textAlign:"center",color:C.t4,padding:48,fontSize:f.s}}>Add your accounts</div>}
+        <div style={{display:"grid",gridTemplateColumns:mb?"1fr":"1fr 1fr",gap:12}}>{(data.savings?.accounts||[]).map(a=><div key={a.id} style={{...cr,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:600,fontSize:f.b,color:C.w}}>{a.name}</div><div style={{fontSize:f.xx,color:C.t4,textTransform:"capitalize"}}>{a.type}</div></div><div style={{display:"flex",alignItems:"center",gap:12}}><span style={{color:C.bl,fontWeight:700,fontSize:f.st-4}}>{fmt(a.balance)}</span><button onClick={()=>dSA(a.id)} style={{background:C.rdD,border:"none",borderRadius:6,color:C.rd,cursor:"pointer",fontSize:16,padding:"2px 8px"}}>×</button></div></div>)}</div>
+        {(data.savings?.transactions||[]).length>0&&<div style={{...cr,marginTop:16}}><div style={{fontSize:f.h2,fontWeight:700,marginBottom:14,color:C.w}}>Recent</div>{(data.savings?.transactions||[]).slice(-10).reverse().map(tx=>{const ac=(data.savings?.accounts||[]).find(a=>a.id===tx.account);return<div key={tx.id} style={{display:"flex",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.border}`,fontSize:f.s}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{color:tx.type==="deposit"?C.gn:C.rd,fontWeight:700}}>{tx.type==="deposit"?"↑":"↓"}</span><span>{ac?.name||"—"}</span>{tx.note&&<span style={{color:C.t4}}>— {tx.note}</span>}</div><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:tx.type==="deposit"?C.gn:C.rd,fontWeight:600}}>{tx.type==="deposit"?"+":"−"}{fmt(tx.amount)}</span><span style={{color:C.t4,fontSize:f.xx}}>{tx.date}</span></div></div>})}</div>}
+      </div>}
+
+      {tab==="writeoffs"&&<div>
+        <div style={{...cr,marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}><div><div style={{fontSize:f.h1,fontWeight:700,color:C.w}}>Write-Off Tracker</div><div style={{color:C.t3,fontSize:f.s,marginTop:4}}>📎 = receipt attached</div></div><div style={{textAlign:"right"}}><div style={{color:C.gd,fontSize:f.st,fontWeight:700}}>{fmt(tW)}</div><div style={{color:C.t4,fontSize:f.xx}}>~{fmt(tW*.25)} saved</div></div></div></div>
+        <div style={cr}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><span style={{fontWeight:700,fontSize:f.h2,color:C.w}}>Write-Offs</span><button onClick={()=>setMod("wo")} style={{...b1,padding:"8px 16px",fontSize:f.xs,borderRadius:10}}>+ Add</button></div>
+          {data.writeOffs.length===0&&<div style={{color:C.t4,fontSize:f.s,padding:30,textAlign:"center"}}>No write-offs yet</div>}
+          {data.writeOffs.map(w=><Rw key={w.id} l={w.description} s={`${w.category} · ${w.date}`} r={fmt2(w.amount)} c={C.gd} od={()=>dW(w.id)} ex={w.receipt?<button onClick={e=>{e.stopPropagation();setVr(w.receipt)}} style={{background:C.gdD,border:"none",borderRadius:6,color:C.gd,cursor:"pointer",fontSize:14,padding:"2px 8px"}}>📎</button>:null}/>)}
+        </div>
+        {vr&&<div style={{position:"fixed",inset:0,zIndex:300,background:"rgba(0,0,0,.9)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setVr(null)}><div style={{maxWidth:500,position:"relative"}}><img src={vr} style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:12}} alt="Receipt"/><button onClick={()=>setVr(null)} style={{position:"absolute",top:-10,right:-10,background:C.rd,border:"none",borderRadius:"50%",width:32,height:32,color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button></div></div>}
+      </div>}
+
+      {tab==="goals"&&<div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}><div style={{fontSize:f.h1,fontWeight:700,color:C.w}}>Goals</div><button onClick={()=>setMod("gl")} style={{...b1,fontSize:f.s}}>+ New Goal</button></div>
+        {data.goals.length===0&&<div style={{...cr,textAlign:"center",color:C.t4,padding:48,fontSize:f.s}}>Set your first target</div>}
+        {data.goals.map(g=>{const p=g.target>0?Math.min((g.saved/g.target)*100,100):0;return<div key={g.id} style={{...cr,marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontWeight:700,fontSize:f.h2,color:C.w}}>{g.name}</span><button onClick={()=>dG(g.id)} style={{background:C.rdD,border:"none",borderRadius:6,color:C.rd,cursor:"pointer",fontSize:16,padding:"2px 8px"}}>×</button></div>
+          <div style={{background:C.card2,borderRadius:10,height:10,overflow:"hidden",marginBottom:12}}><div style={{background:p>=100?C.gn:`linear-gradient(90deg,${C.or},${C.orL})`,height:"100%",width:`${p}%`,borderRadius:10,transition:"width .4s"}}/></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}><span style={{color:C.t2,fontSize:f.s}}>{fmt(g.saved)} of {fmt(g.target)} <span style={{color:p>=100?C.gn:C.or,fontWeight:600}}>({Math.round(p)}%)</span></span><div style={{display:"flex",alignItems:"center",gap:8}}><input inputMode="decimal" value={g.saved} onChange={e=>uGS(g.id,numF(String(e.target.value)))} style={{...inp,width:110,padding:"9px 14px",fontSize:f.s}}/><span style={{color:C.t4,fontSize:f.xx}}>saved</span></div></div>
+        </div>})}
+      </div>}
+
+      {tab==="chat"&&<div style={{display:"flex",flexDirection:"column",height:mb?"calc(100vh - 170px)":"calc(100vh - 150px)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><span style={{fontSize:f.h2,fontWeight:700,color:C.w}}>NTG Budget AI</span><span style={{color:C.t3,fontSize:f.xs,marginLeft:10}}>Budget · Tax · Wealth</span></div><button onClick={async()=>{setChat([]);try{await window.storage.delete("ntg4-c")}catch{}}} style={{...b2,padding:"6px 14px",fontSize:f.xx}}>Clear</button></div>
+        <div style={{...cr,flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:12,padding:mb?14:20}}>
+          {chat.length===0&&<div style={{textAlign:"center",padding:mb?"30px 14px":"50px 24px"}}><div style={{width:52,height:52,borderRadius:16,background:`linear-gradient(135deg,${C.or},#ff9944)`,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:14}}>🧠</div><div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:8}}>NTG Budget AI</div><div style={{fontSize:f.s,color:C.t2,maxWidth:420,margin:"0 auto",lineHeight:1.8}}>Tell me what you make and spend. Ask about taxes, entities, offshore strategies, anything. No limits.</div>
+            <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:20,flexWrap:"wrap"}}>{["I make $3,200/mo from my agency and $1,400 from retail","When should I switch to S-Corp?","What can I write off?","How to legally pay less taxes?"].map(q=><button key={q} onClick={()=>send(q)} style={{background:C.card2,border:`1px solid ${C.borderL}`,padding:"10px 16px",fontSize:f.xs,borderRadius:24,color:C.t1,cursor:"pointer",fontFamily:"'Inter',system-ui,sans-serif",maxWidth:mb?"100%":250,textAlign:"left",lineHeight:1.5}}>{q}</button>)}</div>
+          </div>}
+          {chat.map((x,i)=><div key={i} style={{display:"flex",justifyContent:x.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:mb?"88%":"78%",padding:"14px 18px",borderRadius:x.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",background:x.role==="user"?C.or:C.card2,color:x.role==="user"?"#000":C.t1,fontSize:f.b,lineHeight:1.75,whiteSpace:"pre-wrap",border:x.role==="user"?"none":`1px solid ${C.border}`}}>{x.content}</div></div>)}
+          {bsy&&<div style={{display:"flex"}}><div style={{padding:"14px 20px",borderRadius:18,background:C.card2,border:`1px solid ${C.border}`,color:C.t2,fontSize:f.s}}><span style={{display:"inline-block",animation:"p 1.5s infinite",color:C.or}}>●</span> Thinking...</div></div>}
+          <div ref={cRef}/>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:14}}><input ref={ciRef} value={ci} onChange={e=>setCi(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}} placeholder="Ask anything..." style={{...inp,flex:1,borderRadius:26,padding:"14px 22px"}}/><button onClick={()=>send()} disabled={bsy} style={{...b1,borderRadius:26,padding:"14px 24px",opacity:bsy?.5:1}}>Send</button></div>
+      </div>}
+
+      {tab==="learn"&&<div>
+        <div style={{fontSize:f.h1,fontWeight:700,color:C.w,marginBottom:4}}>Learning Center</div>
+        <div style={{color:C.t2,fontSize:f.s,marginBottom:20}}>Tap any card to expand.</div>
+        <div style={{display:"flex",gap:4,marginBottom:22,flexWrap:"wrap"}}>{[{id:"bible",l:"🙏 Biblical Finance"},{id:"rich",l:"💰 Wealthy Mindset"},{id:"tax",l:"📋 Tax Code"},{id:"follow",l:"📺 Who To Follow"},{id:"res",l:"🔗 Resources"}].map(x=><Pl key={x.id} a={lt===x.id} oc={()=>{setLt(x.id);setOi(null)}} ch={x.l}/>)}</div>
+
+        {lt==="bible"&&<div>
+          <div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:4}}>What God Says About Money (KJV)</div>
+          <div style={{color:C.t2,fontSize:f.s,marginBottom:16,lineHeight:1.7}}>Scripture applied directly to how you earn, spend, save, give, and build as a believer.</div>
+          {BIB.map((b,i)=><div key={i} onClick={()=>setOi(oi===`b${i}`?null:`b${i}`)} style={{...cr,marginBottom:10,cursor:"pointer",borderLeft:`4px solid ${C.gd}`,padding:mb?14:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:600,fontSize:f.b,color:C.w,lineHeight:1.3,paddingRight:10}}>{b.t}</span><span style={{color:C.t4,fontSize:16,transform:oi===`b${i}`?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>▾</span></div>
+            {oi===`b${i}`&&<div style={{marginTop:14}}>
+              <div style={{color:C.t3,fontSize:f.s,fontStyle:"italic",lineHeight:1.7,marginBottom:12,borderLeft:`3px solid ${C.gd}`,paddingLeft:14}}>{b.v}</div>
+              <div style={{background:C.orD,borderRadius:10,padding:"12px 16px",marginBottom:14,border:`1px solid rgba(255,106,0,.12)`}}><span style={{color:C.or,fontWeight:700,fontSize:f.b}}>Key: </span><span style={{color:C.or,fontSize:f.b,fontWeight:500}}>{b.h}</span></div>
+              <div style={{color:C.t2,fontSize:f.s,lineHeight:1.9,whiteSpace:"pre-wrap"}}>{b.b}</div>
+            </div>}
+          </div>)}
+        </div>}
+
+        {lt==="rich"&&<div>
+          <div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:16}}>How The Wealthy Think</div>
+          {RICH.map((r,i)=><div key={i} onClick={()=>setOi(oi===`r${i}`?null:`r${i}`)} style={{...cr,marginBottom:10,cursor:"pointer",borderLeft:`4px solid ${C.gn}`,padding:mb?14:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:600,fontSize:f.b,color:C.w,paddingRight:10}}>{r.t}</span><span style={{color:C.t4,fontSize:16,transform:oi===`r${i}`?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>▾</span></div>
+            {oi===`r${i}`&&<div style={{marginTop:14}}>
+              <div style={{background:C.gnD,borderRadius:10,padding:"12px 16px",marginBottom:14,border:`1px solid rgba(0,200,83,.12)`}}><span style={{color:C.gn,fontWeight:700,fontSize:f.b}}>Key: </span><span style={{color:C.gn,fontSize:f.b,fontWeight:500}}>{r.h}</span></div>
+              <div style={{color:C.t2,fontSize:f.s,lineHeight:1.85}}>{r.b}</div>
+            </div>}
+          </div>)}
+        </div>}
+
+        {lt==="tax"&&<div>
+          <div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:16}}>Tax Code Essentials</div>
+          {TAX.map((t,i)=><div key={i} onClick={()=>setOi(oi===`t${i}`?null:`t${i}`)} style={{...cr,marginBottom:10,cursor:"pointer",borderLeft:`4px solid ${C.or}`,padding:mb?14:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:600,fontSize:f.b,color:C.w,paddingRight:10}}>{t.t}</span><span style={{color:C.t4,fontSize:16,transform:oi===`t${i}`?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>▾</span></div>
+            {oi===`t${i}`&&<div style={{marginTop:14}}>
+              <div style={{background:C.orD,borderRadius:10,padding:"12px 16px",marginBottom:14,border:`1px solid rgba(255,106,0,.12)`}}><span style={{color:C.or,fontWeight:700,fontSize:f.b}}>Key: </span><span style={{color:C.or,fontSize:f.b,fontWeight:500}}>{t.h}</span></div>
+              <div style={{color:C.t2,fontSize:f.s,lineHeight:1.85}}>{t.b}</div>
+            </div>}
+          </div>)}
+        </div>}
+
+        {lt==="follow"&&<div>
+          <div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:16}}>Who To Watch</div>
+          {FOLLOW.map((x,i)=><div key={i} onClick={()=>setOi(oi===`f${i}`?null:`f${i}`)} style={{...cr,marginBottom:10,cursor:"pointer",borderLeft:`4px solid ${PC[i%PC.length]}`,padding:mb?14:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontWeight:700,fontSize:f.b,color:C.w}}>{x.n}</div><div style={{fontSize:f.xx,color:C.t3,marginTop:2}}>{x.f}</div></div><span style={{color:C.t4,fontSize:16,transform:oi===`f${i}`?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span></div>
+            {oi===`f${i}`&&<div style={{marginTop:14}}><div style={{color:C.t2,fontSize:f.s,lineHeight:1.85,marginBottom:12}}>{x.w}</div><a href={x.y} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:C.rdD,border:`1px solid rgba(255,59,59,.2)`,borderRadius:10,padding:"8px 16px",color:"#ff6666",fontSize:f.xs,fontWeight:600,textDecoration:"none"}}>YouTube →</a></div>}
+          </div>)}
+        </div>}
+
+        {lt==="res"&&<div>
+          <div style={{fontSize:f.h2,fontWeight:700,color:C.w,marginBottom:16}}>Resources & Tools</div>
+          {RES.map((c,ci)=><div key={ci} style={{marginBottom:24}}><div style={{fontSize:f.b,fontWeight:700,color:C.or,marginBottom:12}}>{c.c}</div>{c.items.map((x,ii)=><div key={ii} style={{...cr,marginBottom:8,padding:mb?14:18}}><a href={x.u} target="_blank" rel="noopener noreferrer" style={{fontSize:f.b,fontWeight:600,color:C.bl,textDecoration:"none"}}>{x.n} →</a><div style={{color:C.t2,fontSize:f.s,marginTop:6,lineHeight:1.7}}>{x.d}</div></div>)}</div>)}
+        </div>}
+      </div>}
+    </div>
+
+    {mb&&<div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(0,0,0,.95)",backdropFilter:"blur(16px)",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-around",padding:"6px 0 16px",zIndex:60}}>{ts.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setOi(null)}} style={{background:"none",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"4px 4px"}}><span style={{fontSize:15,color:tab===t.id?C.or:C.t4}}>{t.i}</span><span style={{fontSize:9,color:tab===t.id?C.or:C.t4,fontWeight:tab===t.id?600:400,fontFamily:"'Inter',system-ui,sans-serif"}}>{t.l}</span></button>)}</div>}
+
+    {mod==="exp"&&<Md t="Add Expense" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><input placeholder="Expense name" value={fE.name} onChange={e=>sE({...fE,name:e.target.value})} style={inp} autoFocus/><input inputMode="decimal" placeholder="Monthly amount" value={fE.amount} onChange={e=>sE({...fE,amount:numF(e.target.value)})} style={inp}/><input inputMode="numeric" placeholder="Due day (1-31, optional)" value={fE.dueDay} onChange={e=>{const v=intF(e.target.value);if(v===""||+v<=31)sE({...fE,dueDay:v})}} style={inp}/><select value={fE.category} onChange={e=>sE({...fE,category:e.target.value})} style={inp}>{CATS.map(c=><option key={c.n} value={c.n}>{c.i} {c.n}</option>)}</select><select value={fE.type} onChange={e=>sE({...fE,type:e.target.value})} style={inp}><option value="personal">Personal</option><option value="business">Business</option></select><button onClick={aE} style={b1}>Add Expense</button></div>}/>}
+    {mod==="inc"&&<Md t="Add Income" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><input placeholder="Income source" value={fI.source} onChange={e=>sI({...fI,source:e.target.value})} style={inp} autoFocus/><input inputMode="decimal" placeholder="Monthly amount" value={fI.amount} onChange={e=>sI({...fI,amount:numF(e.target.value)})} style={inp}/><button onClick={aI} style={b1}>Add Income</button></div>}/>}
+    {mod==="wo"&&<Md t="Add Write-Off" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><input placeholder="What did you pay for?" value={fW.desc} onChange={e=>sW({...fW,desc:e.target.value})} style={inp} autoFocus/><input inputMode="decimal" placeholder="Amount" value={fW.amount} onChange={e=>sW({...fW,amount:numF(e.target.value)})} style={inp}/><select value={fW.cat} onChange={e=>sW({...fW,cat:e.target.value})} style={inp}>{CATS.filter(c=>c.t==="business").map(c=><option key={c.n} value={c.n}>{c.i} {c.n}</option>)}</select><input type="date" value={fW.date} onChange={e=>sW({...fW,date:e.target.value})} style={inp}/><div><div style={{fontSize:f.xs,color:C.t3,marginBottom:6}}>Receipt (optional, max 3MB)</div><input ref={fRef} type="file" accept="image/*" capture="environment" onChange={hReceipt} style={{display:"none"}}/><div style={{display:"flex",gap:8}}><button onClick={()=>fRef.current?.click()} style={{...b2,padding:"10px 16px",fontSize:f.xs,flex:1,color:C.t2}}>{fW.receipt?"✅ Attached":"📷 Upload Receipt"}</button>{fW.receipt&&<button onClick={()=>sW({...fW,receipt:null})} style={{...b2,padding:"10px 14px",fontSize:f.xs,color:C.rd}}>Remove</button>}</div>{fW.receipt&&<img src={fW.receipt} alt="" style={{marginTop:8,maxHeight:100,borderRadius:8,border:`1px solid ${C.border}`}}/>}</div><button onClick={aW} style={b1}>Add Write-Off</button></div>}/>}
+    {mod==="gl"&&<Md t="New Goal" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><input placeholder="Goal name" value={fG.name} onChange={e=>sG({...fG,name:e.target.value})} style={inp} autoFocus/><input inputMode="decimal" placeholder="Target amount" value={fG.target} onChange={e=>sG({...fG,target:numF(e.target.value)})} style={inp}/><input inputMode="decimal" placeholder="Already saved" value={fG.saved} onChange={e=>sG({...fG,saved:numF(e.target.value)})} style={inp}/><button onClick={aG} style={b1}>Create Goal</button></div>}/>}
+    {mod==="sa"&&<Md t="Add Account" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><input placeholder="Account name" value={fS.name} onChange={e=>sS({...fS,name:e.target.value})} style={inp} autoFocus/><input inputMode="decimal" placeholder="Balance" value={fS.balance} onChange={e=>sS({...fS,balance:numF(e.target.value)})} style={inp}/><select value={fS.type} onChange={e=>sS({...fS,type:e.target.value})} style={inp}><option value="checking">Checking</option><option value="savings">Savings</option><option value="hysa">HYSA</option><option value="investment">Investment</option><option value="business">Business</option><option value="crypto">Crypto</option></select><button onClick={aSA} style={b1}>Add Account</button></div>}/>}
+    {mod==="st"&&<Md t="Deposit / Withdraw" oc={()=>setMod(null)} ch={<div style={{display:"flex",flexDirection:"column",gap:14}}><select value={fT.account} onChange={e=>sT({...fT,account:e.target.value})} style={inp}><option value="">Select account</option>{(data.savings?.accounts||[]).map(a=><option key={a.id} value={a.id}>{a.name} ({fmt(a.balance)})</option>)}</select><select value={fT.type} onChange={e=>sT({...fT,type:e.target.value})} style={inp}><option value="deposit">Deposit</option><option value="withdraw">Withdraw</option></select><input inputMode="decimal" placeholder="Amount" value={fT.amount} onChange={e=>sT({...fT,amount:numF(e.target.value)})} style={inp}/><input placeholder="Note (optional)" value={fT.note} onChange={e=>sT({...fT,note:e.target.value})} style={inp}/><button onClick={aSTx} style={b1}>{fT.type==="deposit"?"Deposit":"Withdraw"}</button></div>}/>}
+  </div>);
+}
